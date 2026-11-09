@@ -1,0 +1,39 @@
+{
+  "name": "github-user-project",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "dev:web": "turbo run dev -F web --",
+    "dev:server": "turbo run dev -F server --",
+    "db:push": "turbo run db:push -F @github-user-project/db --",
+    "db:studio": "turbo run db:studio -F @github-user-project/db --",
+    "db:generate": "turbo run db:generate -F @github-user-project/db --",
+    "db:migrate": "turbo run db:migrate -F @github-user-project/db --",
+    "db:start": "turbo run db:start -F @github-user-project/db --",
+    "db:watch": "turbo run db:watch -F @github-user-project/db --",
+    "db:stop": "turbo run db:stop -F @github-user-project/db --",
+    "db:down": "turbo run db:down -F @github-user-project/db --",
+    "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
+    "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
+    "check": "biome check --write ."
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.2",
+    "@github-user-project/config": "workspace:*",
+    "@types/node": "catalog:",
+    "turbo": "^2.11.7",
+    "typescript": "catalog:",
+    "varlock": "catalog:"
+  },
+  "packageManager": "pnpm@12.18.0"
+}
