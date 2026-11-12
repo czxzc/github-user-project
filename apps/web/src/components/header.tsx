@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ModeToggle } from "./mode-toggle";
 
 export default function Header() {
-	const links = [{ to: "/", label: "Home" }] as const;
+	const links = [{ to: "/", label: "GitHub 用户管理" }] as const;
 
 	return (
 		<div>
