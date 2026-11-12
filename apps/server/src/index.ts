@@ -1,32 +1,10 @@
-import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { logger } from "hono/logger";
-
-import { ENV } from "./env.server";
-
-const app = new Hono();
-
-app.use(logger());
-app.use(
-	"/*",
-	cors({
-		origin: ENV.CORS_ORIGIN,
-		allowMethods: ["GET", "POST", "OPTIONS"],
-	}),
-);
-
-app.get("/", (c) => {
-	return c.text("OK");
-});
+// 本地开发入口：先让 varlock 把 .env 读进 process.env，再启动 HTTP 服务
+import "varlock/auto-load";
 
 import { serve } from "@hono/node-server";
 
-serve(
-	{
-		fetch: app.fetch,
-		port: 3000,
-	},
-	(info) => {
-		console.log(`Server is running on http://localhost:${info.port}`);
-	},
-);
+import { app } from "./app";
+
+serve({ fetch: app.fetch, port: 3000 }, (info) => {
+	console.log(`Server is running on http://localhost:${info.port}`);
+});

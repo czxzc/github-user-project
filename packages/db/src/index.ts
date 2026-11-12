@@ -9,6 +9,6 @@ export function createDb(env: DatabaseConfig) {
 
 export type Database = ReturnType<typeof createDb>;
 
-export { desc, eq } from "drizzle-orm";
 // 把表和常用查询工具一起导出，后端只需要依赖这一个包
+export { desc, eq } from "drizzle-orm";
 export * from "./schema";
