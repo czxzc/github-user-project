@@ -26,15 +26,36 @@ function awsJson(operation, parameters) {
 		return JSON.parse(output);
 	} catch (error) {
 		const stderr = error.stderr?.toString() ?? "";
-		if (stderr.includes("InvocationDoesNotExist")) {
+		const code =
+			stderr.match(/An error occurred \(([A-Za-z0-9_.-]+)\)/)?.[1] ??
+			error.code ??
+			"UnknownAwsCliError";
+		if (code === "InvocationDoesNotExist") {
 			const pending = new Error("SSM invocation is not visible yet");
 			pending.code = "InvocationDoesNotExist";
 			throw pending;
 		}
-		// Keep AWS response bodies and remote command output out of the build log.
-		throw new Error(
-			`AWS SSM ${operation} failed. Check AWS permissions, credentials and node status.`,
+		const hints = {
+			AccessDenied:
+				"Check the deployment user's SSM policy, target instance ARN and organization SCPs.",
+			AccessDeniedException:
+				"Check the deployment user's SSM policy, target instance ARN and organization SCPs.",
+			InvalidInstanceId:
+				"Check BASTION_INSTANCE_ID, the Sydney region, and whether the bastion is running and registered with SSM.",
+			InvalidDocument:
+				"Check that AWS-RunShellScript is available in the target region.",
+			ExpiredToken: "Update the GitHub Actions AWS credentials.",
+			ExpiredTokenException: "Update the GitHub Actions AWS credentials.",
+			ENOENT: "Install the AWS CLI on the workflow runner.",
+			ETIMEDOUT:
+				"The AWS CLI request timed out. Check network access to the SSM endpoint.",
+		};
+		// Report the service error code without dumping command output or credentials.
+		const failure = new Error(
+			`AWS SSM ${operation} failed (${code}). ${hints[code] ?? "Check the AWS API error in CloudTrail and the target node status."}`,
 		);
+		failure.code = code;
+		throw failure;
 	}
 }
 
@@ -124,6 +145,9 @@ export async function runMigration({
 		repository: environment.GITHUB_REPOSITORY,
 		commit: environment.GITHUB_SHA,
 	});
+	console.log(
+		`Migration target: ${request.InstanceIds[0]}, region: ${environment.AWS_REGION ?? "AWS CLI default"}`,
+	);
 	const response = await call("send-command", request);
 	const commandId = response.Command?.CommandId;
 	if (!/^[a-f0-9-]{36}$/.test(commandId ?? "")) {

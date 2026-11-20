@@ -207,6 +207,10 @@ test("real CLI entry point exits nonzero for a failed remote migration", async (
 			path.join(directory, "aws"),
 			`#!/usr/bin/env node
 const operation = process.argv[3];
+if (process.env.MOCK_AWS_ERROR) {
+  console.error('An error occurred (' + process.env.MOCK_AWS_ERROR + ') when calling the SendCommand operation: hidden-test-secret');
+  process.exit(254);
+}
 const result = operation === 'send-command'
   ? { Command: { CommandId: '${commandId}' } }
   : operation === 'get-command-invocation'
@@ -236,6 +240,29 @@ console.log(JSON.stringify(result));
 				},
 			);
 			assert.equal(result.status, expectedExit, result.stderr);
+		}
+		for (const code of [
+			"AccessDeniedException",
+			"InvalidInstanceId",
+			"InvalidDocument",
+		]) {
+			const result = spawnSync(
+				process.execPath,
+				[fileURLToPath(new URL("./migrate-via-ssm.mjs", import.meta.url))],
+				{
+					env: {
+						...process.env,
+						...environment,
+						PATH: `${directory}${path.delimiter}${process.env.PATH}`,
+						MOCK_AWS_ERROR: code,
+					},
+					encoding: "utf8",
+					timeout: 10_000,
+				},
+			);
+			assert.equal(result.status, 1);
+			assert.ok(result.stderr.includes(`(${code})`), result.stderr);
+			assert.doesNotMatch(result.stdout + result.stderr, /hidden-test-secret/);
 		}
 	} finally {
 		await rm(directory, { recursive: true, force: true });
