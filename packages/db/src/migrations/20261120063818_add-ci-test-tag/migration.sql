@@ -1,0 +1,1 @@
+ALTER TABLE "github_users" ADD COLUMN "ci_test_tag" text;

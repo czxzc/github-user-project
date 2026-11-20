@@ -25,7 +25,9 @@ app.use(
 );
 
 app.get("/", (c) => c.text("OK"));
-app.get("/health", (c) => c.json({ status: "ok" }));
+app.get("/health", (c) =>
+	c.json({ status: "ok", version: "ci-migration-test-20261120" }),
+);
 
 app.route("/api/github", githubRoutes);
 app.route("/api/users", userRoutes);

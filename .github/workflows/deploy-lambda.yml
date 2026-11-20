@@ -31,6 +31,7 @@ jobs:
       AWS_REGION: ap-southeast-2
       AWS_LAMBDA_FUNCTION_NAME: github-user-api
       AWS_PAGER: ""
+      EXPECTED_API_VERSION: ci-migration-test-20261120
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -86,7 +87,10 @@ jobs:
             isBase64Encoded: false,
           });
           assert.equal(response.statusCode, 200);
-          assert.deepEqual(JSON.parse(response.body), { status: 'ok' });
+          assert.deepEqual(JSON.parse(response.body), {
+            status: 'ok',
+            version: process.env.EXPECTED_API_VERSION,
+          });
           console.log('Packaged Lambda handler passed health check');
           JS
 
@@ -118,7 +122,41 @@ jobs:
           API_BASE_URL: ${{ vars.NEXT_PUBLIC_SERVER_URL }}
         run: |
           : "${API_BASE_URL:?Set the NEXT_PUBLIC_SERVER_URL repository variable}"
+          health_response="$(mktemp)"
           curl --fail-with-body --show-error --silent \
             --connect-timeout 10 --max-time 30 \
             --retry 3 --retry-all-errors --retry-delay 3 \
-            "${API_BASE_URL%/}/health"
+            "${API_BASE_URL%/}/health" --output "$health_response"
+          node --input-type=module - "$health_response" <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+
+          const health = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+          assert.equal(health.status, 'ok');
+          assert.equal(health.version, process.env.EXPECTED_API_VERSION);
+          console.log('Deployed Lambda version verified:', health.version);
+          JS
+
+      - name: Check deployed database endpoint
+        env:
+          API_BASE_URL: ${{ vars.NEXT_PUBLIC_SERVER_URL }}
+        run: |
+          : "${API_BASE_URL:?Set the NEXT_PUBLIC_SERVER_URL repository variable}"
+          users_response="$(mktemp)"
+          curl --fail-with-body --show-error --silent \
+            --connect-timeout 10 --max-time 30 \
+            --retry 3 --retry-all-errors --retry-delay 3 \
+            "${API_BASE_URL%/}/api/users" --output "$users_response"
+          node --input-type=module - "$users_response" <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+
+          const users = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+          assert.ok(Array.isArray(users), 'Expected a user list');
+          for (const user of users) {
+            assert.ok(Object.hasOwn(user, 'ciTestTag'), 'New database column missing from response');
+            assert.ok(user.ciTestTag === null || typeof user.ciTestTag === 'string');
+          }
+          // The route selects ci_test_tag even when the table is empty.
+          console.log('Deployed API successfully queried the migrated github_users table.');
+          JS

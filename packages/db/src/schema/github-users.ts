@@ -22,6 +22,7 @@ export const githubUsers = pgTable("github_users", {
 	followers: integer("followers").notNull().default(0),
 	following: integer("following").notNull().default(0),
 	note: text("note"), // 我们自己的备注，“修改”功能改的就是它
+	ciTestTag: text("ci_test_tag"), // 用于验证 CI 自动迁移；允许为空，兼容已有数据
 	githubCreatedAt: timestamp("github_created_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.notNull()

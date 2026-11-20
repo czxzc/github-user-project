@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8581ffc0-3354-4278-9478-1470974326fb",
+  "prevIds": [
+    "91e763a7-c92c-479c-8c75-d7574edee130"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "github_users",
+        "ci_test_tag"
+      ],
+      "writes": [
+        "s|col|public.github_users.ci_test_tag",
+        "n|col|public.github_users.ci_test_tag",
+        "e|col|public.github_users.ci_test_tag"
+      ],
+      "reads": [
+        "n|tbl|public.github_users",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_users",
+        "name": "ci_test_tag",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}
