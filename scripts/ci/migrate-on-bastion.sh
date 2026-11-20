@@ -61,12 +61,17 @@ if [[ ! -x "$pnpm_dir/node_modules/.bin/pnpm" ]]; then
 fi
 export PATH="$pnpm_dir/node_modules/.bin:$PATH"
 cd "$source_dir"
-CI=true pnpm install --frozen-lockfile --prod=false
+echo 'Installing database migration production dependencies.'
+CI=true pnpm --filter-prod '@github-user-project/db...' install \
+  --prod --frozen-lockfile --ignore-scripts --network-concurrency=4 \
+  --store-dir "$state_dir/pnpm-store"
+echo 'Database migration dependencies are ready.'
 
 certificate_file="$state_dir/global-bundle.pem"
 curl -fsSL --retry 3 --connect-timeout 10 --max-time 60 \
   https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -o "$certificate_file"
 
 echo 'Running database migration for this deployment.'
+# Running Node directly avoids pnpm's pre-run dependency reconciliation.
 MIGRATION_CONFIG_PATH="$config_file" RDS_CA_BUNDLE="$certificate_file" \
-  pnpm --filter @github-user-project/db run db:migrate:ci
+  node "$source_dir/packages/db/scripts/migrate-deploy.mjs"
