@@ -50,7 +50,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Test migration deployment gate
-        run: node --test scripts/ci/migrate-via-ssm.test.mjs
+        run: |
+          node --test scripts/ci/migrate-via-ssm.test.mjs
+          python3 scripts/ci/test_setup_bastion_migration.py
 
       - name: Check server and database types
         run: pnpm --filter @github-user-project/db --filter server check-types

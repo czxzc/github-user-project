@@ -18,12 +18,12 @@ from urllib.parse import quote
 
 target = '/etc/github-user-project/migration.json'
 
-with open('/dev/tty', 'r+') as terminal:
+with open('/dev/tty', 'r') as terminal_input, open('/dev/tty', 'w') as terminal_output:
     def ask(prompt, default=None):
         suffix = f' [{default}]' if default is not None else ''
-        terminal.write(f'{prompt}{suffix}: ')
-        terminal.flush()
-        value = terminal.readline()
+        terminal_output.write(f'{prompt}{suffix}: ')
+        terminal_output.flush()
+        value = terminal_input.readline()
         if not value:
             raise SystemExit('Interactive input ended; configuration was not saved.')
         return value.strip() or default
@@ -35,7 +35,7 @@ with open('/dev/tty', 'r+') as terminal:
     port = ask('Database port', '5432')
     database = ask('Database name', 'github_users_app')
     username = ask('Migration database user', 'postgres')
-    password = getpass.getpass('Database password (input is hidden): ', stream=terminal)
+    password = getpass.getpass('Database password (input is hidden): ', stream=terminal_output)
 
 if not hostname or not re.fullmatch(r'[A-Za-z0-9.-]+', hostname):
     raise SystemExit('Enter only the Aurora writer hostname, without a URL prefix or port.')
