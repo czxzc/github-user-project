@@ -4,6 +4,7 @@
 	"main": "src/index.ts",
 	"scripts": {
 		"build": "tsdown",
+		"build:lambda": "tsdown --config tsdown.lambda.config.mjs",
 		"check-types": "tsc --noEmit",
 		"compile": "bun build --compile --no-compile-autoload-dotenv --minify --sourcemap --bytecode ./src/index.ts --outfile server",
 		"dev": "tsx watch src/index.ts",

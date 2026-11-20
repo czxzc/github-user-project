@@ -1,0 +1,112 @@
+name: Deploy API to AWS Lambda
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/server/**"
+      - "packages/db/**"
+      - "packages/config/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/deploy-lambda.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-lambda-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AWS_REGION: ap-southeast-2
+      AWS_LAMBDA_FUNCTION_NAME: github-user-api
+      AWS_PAGER: ""
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check server and database types
+        run: pnpm --filter @github-user-project/db --filter server check-types
+
+      - name: Build Lambda bundle
+        run: pnpm --filter server build:lambda
+
+      - name: Package Lambda bundle
+        run: zip -j apps/server/lambda.zip apps/server/dist-lambda/lambda.mjs
+
+      - name: Smoke test packaged Lambda handler
+        run: |
+          lambda_check_dir="$(mktemp -d)"
+          unzip -q apps/server/lambda.zip -d "$lambda_check_dir"
+          LAMBDA_BUNDLE_PATH="$lambda_check_dir/lambda.mjs" \
+          DATABASE_URL='postgresql://test:test@127.0.0.1:5432/test' \
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { pathToFileURL } from 'node:url';
+
+          const { handler } = await import(pathToFileURL(process.env.LAMBDA_BUNDLE_PATH).href);
+          const response = await handler({
+            version: '2.0',
+            rawPath: '/health',
+            rawQueryString: '',
+            headers: {},
+            requestContext: {
+              domainName: 'example.com',
+              http: { method: 'GET', path: '/health' },
+            },
+            isBase64Encoded: false,
+          });
+          assert.equal(response.statusCode, 200);
+          assert.deepEqual(JSON.parse(response.body), { status: 'ok' });
+          console.log('Packaged Lambda handler passed health check');
+          JS
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: "470293170880"
+
+      - name: Update Lambda code
+        run: |
+          aws lambda update-function-code \
+            --function-name "$AWS_LAMBDA_FUNCTION_NAME" \
+            --zip-file fileb://apps/server/lambda.zip \
+            --query '{FunctionName:FunctionName,LastUpdateStatus:LastUpdateStatus,CodeSha256:CodeSha256}' \
+            --output json
+          aws lambda wait function-updated \
+            --function-name "$AWS_LAMBDA_FUNCTION_NAME"
+
+      - name: Check deployed health endpoint
+        env:
+          API_BASE_URL: ${{ vars.NEXT_PUBLIC_SERVER_URL }}
+        run: |
+          : "${API_BASE_URL:?Set the NEXT_PUBLIC_SERVER_URL repository variable}"
+          curl --fail-with-body --show-error --silent \
+            --connect-timeout 10 --max-time 30 \
+            --retry 3 --retry-all-errors --retry-delay 3 \
+            "${API_BASE_URL%/}/health"
