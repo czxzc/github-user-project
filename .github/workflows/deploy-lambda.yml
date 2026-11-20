@@ -10,6 +10,8 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "scripts/ci/**"
+      - "deploy/aws/github-actions-lambda-policy.json"
       - ".github/workflows/deploy-lambda.yml"
   workflow_dispatch:
 
@@ -24,7 +26,7 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     env:
       AWS_REGION: ap-southeast-2
       AWS_LAMBDA_FUNCTION_NAME: github-user-api
@@ -46,6 +48,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Test migration deployment gate
+        run: node --test scripts/ci/migrate-via-ssm.test.mjs
 
       - name: Check server and database types
         run: pnpm --filter @github-user-project/db --filter server check-types
@@ -90,6 +95,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
           allowed-account-ids: "470293170880"
+
+      - name: Migrate database on bastion
+        env:
+          BASTION_INSTANCE_ID: ${{ vars.BASTION_INSTANCE_ID }}
+        run: node scripts/ci/migrate-via-ssm.mjs
 
       - name: Update Lambda code
         run: |

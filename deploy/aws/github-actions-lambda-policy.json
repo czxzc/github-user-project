@@ -1,0 +1,29 @@
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "DeployGithubUserApi",
+			"Effect": "Allow",
+			"Action": [
+				"lambda:UpdateFunctionCode",
+				"lambda:GetFunctionConfiguration"
+			],
+			"Resource": "arn:aws:lambda:ap-southeast-2:470293170880:function:github-user-api"
+		},
+		{
+			"Sid": "RunMigrationOnBastion",
+			"Effect": "Allow",
+			"Action": "ssm:SendCommand",
+			"Resource": [
+				"arn:aws:ssm:ap-southeast-2::document/AWS-RunShellScript",
+				"arn:aws:ec2:ap-southeast-2:470293170880:instance/i-07f444db6b5c23654"
+			]
+		},
+		{
+			"Sid": "WaitForOrCancelMigration",
+			"Effect": "Allow",
+			"Action": ["ssm:GetCommandInvocation", "ssm:CancelCommand"],
+			"Resource": "*"
+		}
+	]
+}
